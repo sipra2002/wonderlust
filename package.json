@@ -1,0 +1,18 @@
+{
+  "name": "travel-tourism-platform",
+  "version": "1.0.0",
+  "description": "Full-stack Travel & Tourism Web Platform",
+  "scripts": {
+    "install:all": "npm install && npm --prefix server install && npm --prefix client install",
+    "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
+    "dev:server": "cd server && node src/server.js",
+    "dev:client": "cd client && npm run dev",
+    "seed": "cd server && node prisma/seed.js",
+    "db:push": "cd server && npx prisma db push",
+    "db:generate": "cd server && npx prisma generate",
+    "build": "npm --prefix client install && npm --prefix client run build"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}

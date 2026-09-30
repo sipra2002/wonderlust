@@ -1,0 +1,244 @@
+// This is your Prisma schema file.
+// Learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String    @id @default(uuid())
+  name         String
+  email        String    @unique
+  passwordHash String
+  role         String    @default("USER") // USER, VENDOR, ADMIN, SUPPORT_AGENT
+  phone        String?
+  avatar       String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  vendorProfile Vendor?
+  bookings      Booking[]
+  trips         Trip[]
+  reviews       Review[]
+  tickets       Ticket[]
+}
+
+model Vendor {
+  id           String   @id @default(uuid())
+  userId       String   @unique
+  businessName String
+  verified     Boolean  @default(false)
+  contactEmail String?
+  contactPhone String?
+  createdAt    DateTime @default(now())
+
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  hotels Hotel[]
+}
+
+model Destination {
+  id               String   @id @default(uuid())
+  name             String
+  state            String
+  country          String   @default("India")
+  category         String   // beach, hill_station, heritage, adventure
+  description      String
+  bestTimeToVisit  String
+  weatherTemp      String
+  weatherCondition String
+  images           String   // JSON stringified array of image URLs
+  latitude         Float?
+  longitude        Float?
+  createdAt        DateTime @default(now())
+
+  hotels            Hotel[]
+  restaurants       Restaurant[]
+  reviews           Review[]
+  trips             Trip[]
+  faqs              FaqItem[]
+  emergencyContacts EmergencyContact[]
+}
+
+model Hotel {
+  id            String   @id @default(uuid())
+  vendorId      String?
+  destinationId String
+  name          String
+  address       String
+  description   String
+  rating        Float    @default(4.5)
+  pricePerNight Float
+  amenities     String   // JSON array: WiFi, Pool, Spa, etc.
+  images        String   // JSON array of image URLs
+  isApproved    Boolean  @default(true)
+  createdAt     DateTime @default(now())
+
+  vendor      Vendor?      @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+  destination Destination  @relation(fields: [destinationId], references: [id], onDelete: Cascade)
+  rooms       Room[]
+  bookings    Booking[]
+  reviews     Review[]
+}
+
+model Room {
+  id         String  @id @default(uuid())
+  hotelId    String
+  type       String  // Deluxe Room, Ocean Villa, Executive Suite, etc.
+  price      Float
+  capacity   Int     @default(2)
+  amenities  String  // JSON array
+  totalRooms Int     @default(5)
+  image      String?
+
+  hotel    Hotel     @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  bookings Booking[]
+}
+
+model Booking {
+  id              String   @id @default(uuid())
+  bookingNumber   String   @unique
+  userId          String
+  hotelId         String
+  roomId          String
+  checkIn         DateTime
+  checkOut        DateTime
+  guests          Int      @default(1)
+  totalAmount     Float
+  status          String   @default("PENDING") // PENDING, CONFIRMED, CANCELLED, COMPLETED
+  specialRequests String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  hotel   Hotel    @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  room    Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  payment Payment?
+}
+
+model Payment {
+  id                String   @id @default(uuid())
+  bookingId         String   @unique
+  razorpayOrderId   String?
+  razorpayPaymentId String?
+  razorpaySignature String?
+  amount            Float
+  currency          String   @default("INR")
+  status            String   @default("PENDING") // PENDING, SUCCESS, FAILED, REFUNDED
+  createdAt         DateTime @default(now())
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+}
+
+model Trip {
+  id            String   @id @default(uuid())
+  userId        String
+  title         String
+  destinationId String
+  startDate     DateTime
+  endDate       DateTime
+  budget        Float    @default(0)
+  isPublic      Boolean  @default(false)
+  shareToken    String?  @unique
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  destination Destination     @relation(fields: [destinationId], references: [id], onDelete: Cascade)
+  items       ItineraryItem[]
+}
+
+model ItineraryItem {
+  id        String  @id @default(uuid())
+  tripId    String
+  day       Int     @default(1)
+  timeSlot  String? // Morning, Afternoon, Evening
+  activity  String
+  location  String?
+  cost      Float   @default(0)
+  notes     String?
+
+  trip Trip @relation(fields: [tripId], references: [id], onDelete: Cascade)
+}
+
+model Restaurant {
+  id            String  @id @default(uuid())
+  destinationId String
+  name          String
+  cuisine       String  // JSON array
+  priceRange    String  // ₹, ₹₹, ₹₹₹
+  rating        Float   @default(4.5)
+  address       String
+  highlights    String  // JSON array of signature dishes
+  image         String
+
+  destination Destination @relation(fields: [destinationId], references: [id], onDelete: Cascade)
+}
+
+model Review {
+  id            String   @id @default(uuid())
+  userId        String
+  hotelId       String?
+  destinationId String?
+  rating        Int
+  comment       String
+  createdAt     DateTime @default(now())
+
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  hotel       Hotel?       @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  destination Destination? @relation(fields: [destinationId], references: [id], onDelete: Cascade)
+}
+
+model Ticket {
+  id              String   @id @default(uuid())
+  ticketNumber    String   @unique
+  userId          String
+  subject         String
+  description     String
+  category        String   // Booking, Payment, Hotel, General
+  priority        String   @default("MEDIUM") // LOW, MEDIUM, HIGH, URGENT
+  status          String   @default("OPEN")   // OPEN, IN_PROGRESS, RESOLVED, CLOSED
+  assignedAgentId String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user     User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages TicketMessage[]
+}
+
+model TicketMessage {
+  id         String   @id @default(uuid())
+  ticketId   String
+  senderId   String
+  senderName String
+  senderRole String
+  message    String
+  createdAt  DateTime @default(now())
+
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+}
+
+model FaqItem {
+  id            String   @id @default(uuid())
+  destinationId String?
+  category      String   // General, Transport, Visa, Safety, Culture
+  question      String
+  answer        String
+
+  destination Destination? @relation(fields: [destinationId], references: [id], onDelete: Cascade)
+}
+
+model EmergencyContact {
+  id            String  @id @default(uuid())
+  destinationId String?
+  serviceType   String  // Police, Ambulance, Hospital, Tourist Helpline, Embassy
+  name          String
+  phone         String
+  address       String?
+
+  destination Destination? @relation(fields: [destinationId], references: [id], onDelete: Cascade)
+}
